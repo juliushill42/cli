@@ -1,0 +1,85 @@
+#!/data/data/com.termux/files/usr/bin/bash
+set -Eeuo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARCHIVE="TitanRuntime-Samsung-20260908-201247.tar.gz"
+
+case "${1:-help}" in
+    verify)
+        cd "$ROOT/dist"
+        exec sha256sum -c "${ARCHIVE}.sha256"
+        ;;
+
+    inspect)
+        exec tar -tzf "$ROOT/dist/$ARCHIVE"
+        ;;
+
+    install)
+        TMP="${TMPDIR:-$HOME/.cache}/titan-cli-install.$$"
+        rm -rf "$TMP"
+        mkdir -p "$TMP"
+
+        cd "$ROOT/dist"
+        sha256sum -c "${ARCHIVE}.sha256"
+        tar -xzf "$ARCHIVE" -C "$TMP"
+
+        exec bash "$TMP/TitanRuntimeBundle/INSTALL-SAMSUNG.sh"
+        ;;
+
+    start)
+        test -x "$HOME/titan-runtime/start.sh" || {
+            echo "Titan runtime is not installed." >&2
+            exit 1
+        }
+        exec "$HOME/titan-runtime/start.sh"
+        ;;
+
+    stop)
+        test -x "$HOME/titan-runtime/stop.sh" || {
+            echo "Titan runtime is not installed." >&2
+            exit 1
+        }
+        exec "$HOME/titan-runtime/stop.sh"
+        ;;
+
+    status)
+        if [ -x "$HOME/titan-runtime/status.sh" ]; then
+            exec "$HOME/titan-runtime/status.sh"
+        elif [ -x "$HOME/titan-runtime/bin/titanctl" ]; then
+            exec "$HOME/titan-runtime/bin/titanctl" status
+        elif command -v titanctl >/dev/null 2>&1; then
+            exec titanctl status
+        else
+            echo "Titan runtime is not installed." >&2
+            exit 1
+        fi
+        ;;
+
+    source)
+        printf '%s\n' "$ROOT/runtime/TitanRuntimeBundle"
+        ;;
+
+    help|--help|-h)
+        cat <<'HELP_EOF'
+Titan CLI
+
+Commands:
+  titan-cli verify    Verify original Moto artifact
+  titan-cli inspect   List original bundle contents
+  titan-cli install   Install original Titan runtime
+  titan-cli start     Start Titan runtime
+  titan-cli stop      Stop Titan runtime
+  titan-cli status    Show Titan runtime status
+  titan-cli source    Show extracted original runtime path
+
+Aliases installed:
+  Titan
+  titan-cli
+HELP_EOF
+        ;;
+
+    *)
+        echo "Unknown command: $1" >&2
+        exit 2
+        ;;
+esac
